@@ -1,0 +1,758 @@
+---
+title: "Projet_SY02"
+output: html_document
+date: "2024-12-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Guillaume Py
+
+## Exercice 1:
+
+## 1)
+Dans: $((Z_1, W_1), \ldots,(Z_n, W_n)) \quad$ où $\quad Z_i=Z_i(X_i, Y_i) \quad$ et $\quad W_i=\{\begin{array}{lll}1 & \text { si } & Z_i=X_i \\ 0 & \text { si } & Z_i=Y_i .\end{array}.$ 
+$Z_i$ correspond à la durée de vie du système.
+$W_i$ est un indiquateur du composant qui est tombé en panne. 1 si c'est le premier composant de distribution: X, 0 si c'est le second composant de distribution: Y.
+
+2) On a: $f_X(x \mid \lambda)=\lambda e^{-\lambda x}$ ainsi que $f_Y(x \mid \mu)=\mu e^{-\mu x}$.
+
+On cherche $\quad Z_i=Z_i(X_i, Y_i) \quad$:
+
+Si $Z_i$ est le minimum de $X_i$ et $Y_i$ alors $X_i \geq Z_i$ et $Y_i \geq Z_i$, on a donc:
+
+```{=Latex}
+\begin{aligned}
+F_{Z_i}(x) 
+&= P(Z_i \leq x) \\
+&= 1 - P(Z_i > x) \\
+&= 1 - P(X_i > x, Y_i > x) \\
+&= 1 - P(X_i > x).P(Y_i > x) \\
+&= 1 - (1-F_{X_i}(x)).(1-F_{Y_i}(x))
+\end{aligned}
+```
+
+
+La fonction de répartition d'une loi exponentiel est definie par:
+
+
+```{=Latex}
+\begin{aligned}
+F_(x) 
+&= \int_{0}^{x} f(\lambda e^{-\lambda x}) \, dx \\
+&= 1 - e^{-\lambda x} \\
+\end{aligned}
+```
+
+
+D'où:
+
+```{=Latex}
+\begin{aligned}
+F_{Z_i}(x)
+&= 1 - ( e^{-\lambda x}. e^{-\mu x}) \\
+&= 1- e^{- x(\lambda + \mu)} \\
+\end{aligned}
+```
+
+Ainsi en dérivant la fonction de répartition, on retrouve la fonction de densité:
+
+```{=Latex}
+\begin{aligned}
+f_{Z_i}(x) 
+&= \frac{df}{dx}(1 -e^{- x(\lambda + \mu)}) \\
+&= (\lambda + \mu) e^{-(\lambda + \mu) x}\\
+\end{aligned}
+```
+
+
+Vérifions avec R:
+
+```{r}
+n = 10000
+lambda = 2
+mu = 1
+
+X = rexp(n, lambda)
+Y = rexp(n, mu)
+
+x = seq(0, 2.5, length.out = 1000)
+Z_theorie = dexp(x, lambda+mu)
+plot(x, Z_theorie, type = "l", col = "blue", lwd = 4)
+
+
+Z_reel = rep(0, n)
+for(i in seq_along(Z_reel)){
+  Z_reel[i] = min(X[i], Y[i])
+}
+
+hist(Z_reel, breaks = 100,freq = FALSE, add = TRUE, col = rgb(1, 0, 0, 0.5))
+
+legend("topright", legend = c("Théorique", "Simulé"), 
+       text.col = c("blue", rgb(1, 0, 0, 0.5)))
+```
+
+
+## 2)
+On cherche la loi de $W_i$:
+
+On a:
+
+```{=Latex}
+\begin{aligned}
+P(W_i = 1)
+&= P(Z_i = X_i) \\
+&= P(X_i \leq Y_i)
+\end{aligned}
+```
+
+On cherche donc:
+
+```{=Latex}
+\begin{aligned}
+P(W_i = 1)
+&= \int_{0}^{+\infty} \int_{0}^{y} f_X(x) f_Y(y) \, dx \, dy \\
+&= \int_{0}^{+\infty} -\mu e^{-y(\mu + \lambda)} + \mu e^{-\mu y}\, dy \\
+&= 1-\frac{\mu}{\lambda + \mu} = \frac{\lambda}{\lambda + \mu}
+\end{aligned}
+```
+
+Ainsi: $P(W_i = 1) = \frac{\lambda}{\lambda + \mu}$ et donc $P(W_i = 0) = 1 - P(W_i = 1) = \frac{\mu}{\lambda + \mu}$.
+
+
+Donc puisque $W_i$ suit une loi de Bernouilly, on a:
+
+$f_{W_i} = (\frac{\lambda}{\lambda + \mu})^{x}.(\frac{\mu}{\lambda + \mu})^{1-x}$
+
+Vérifions avec R:
+
+```{r}
+P_W_0 = mu / (lambda + mu)
+W_theorie = c(P_W_0, 1 - P_W_0)
+
+W_reel = numeric(2)
+for (i in seq_along(Z_reel)) {
+  W_reel[i] = (Z_reel[i] == X[i])
+}
+
+prop_1 = mean(W_reel)  # Proportion de 1
+prop_0 = 1 - prop_1    # Proportion de 0
+
+
+bar_values = matrix(c(W_theorie, prop_0, prop_1), 
+                    nrow = 2, byrow = TRUE)
+
+colnames(bar_values) = c("0", "1")
+rownames(bar_values) = c("Théorique", "Simulé")
+
+barplot(bar_values, beside = TRUE, 
+        col = c("blue", "red"), 
+        legend.text = TRUE, 
+        args.legend = list("topright", legend = rownames(bar_values), 
+                           text.col = c("blue", "red")))
+
+
+```
+
+
+## 3)
+On a: $L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n)=L(\lambda ; Z_1, \ldots, Z_n) L(\lambda ; W_1, \ldots, W_n)$
+
+On cherche un estimateur de $\lambda$ par la méthode du maximum de vraissemblance:
+
+```{=Latex}
+\begin{aligned}
+L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n)
+&=  \prod{(\lambda + \mu) e^{-Z_i (\lambda + mu)}} . \prod{(\frac{\lambda}{\lambda + \mu})^{W_i}.(\frac{\mu}{\lambda + \mu})^{1-W_i}}  \\
+\end{aligned}
+```
+
+
+On applique le logarithme pour avoir la log-vraissemblance:
+
+```{=Latex}
+\begin{aligned}
+\ln(L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n)) 
+&= \ln(\prod_{i=1}^n (\lambda + \mu) e^{-Z_i (\lambda + \mu)} \cdot \prod_{i=1}^n (\frac{\lambda}{\lambda + \mu})^{W_i} (\frac{\mu}{\lambda + \mu})^{1 - W_i}) \\
+&= \sum_{i=1}^n \ln((\lambda + \mu) e^{-Z_i (\lambda + \mu)}) + \sum_{i=1}^n \ln((\frac{\lambda}{\lambda + \mu})^{W_i} (\frac{\mu}{\lambda + \mu})^{1 - W_i}) \\
+&= \sum_{i=1}^n (\ln(\lambda + \mu) - Z_i (\lambda + \mu)) + \sum_{i=1}^n (W_i \ln(\frac{\lambda}{\lambda + \mu}) + (1 - W_i) \ln(\frac{\mu}{\lambda + \mu})) \\
+&= -(\lambda + \mu) \sum_{i=1}^n Z_i + (\ln(\lambda) - \ln(\mu)) \sum_{i=1}^n W_i + n \ln(\mu).
+\end{aligned}
+```
+
+On cherche le maximum, donc on dérive:
+
+```{=Latex}
+\begin{aligned}
+\frac{dln(L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n))}{d \lambda}
+&= - \sum{Z_i} + \frac{\sum{W_i}}{\lambda}  \\
+\end{aligned}
+```
+
+On doit maintenant trouver le point critique:
+
+```{=Latex}
+\begin{equation}
+- \sum{Z_i} + \frac{\sum{W_i}}{\hat{\lambda}_{MV}} = 0  \\
+\hat{\lambda}_{MV} = \frac{\sum{W_i}}{\sum{Z_i}}  \\
+\end{equation}
+```
+
+Vérifions que ce point critique est bien un maximum à l'aide de la dérivée seconde:
+
+```{=Latex}
+\begin{aligned}
+\frac{d^2ln(L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n))}{d \lambda ^2} 
+& = \frac{d(- \sum{Z_i} + \frac{\sum{W_i}}{\hat{\lambda}_MV})}{d \lambda} \\
+& = -\frac{\sum{W_i}}{\lambda ^2} \leq 0 \\
+\end{aligned}
+```
+
+Donc cet extremum est bien un maximum et $\hat{\lambda}_{MV} = \frac{\sum{W_i}}{\sum{Z_i}}$.
+
+Vérifions avec R:
+
+```{r}
+lambda_estim = sum(W_reel)/sum(Z_reel)
+cat("Lambda réel : ", lambda)
+cat("Estimation de lambda : ", lambda_estim)
+```
+
+
+## 4)
+
+Je trouve un biais de 0 et une variance de $\lambda\mu$
+
+```{r}
+lambda = 2
+
+n = seq(10, 100, 10)
+
+lambda_estim = function(n, lambda){
+  X = rexp(n, lambda)
+  Y = rexp(n, mu)
+  
+  Z = rep(0, n)
+  W = rep(0, n)
+  
+  for(i in seq(1, n)){
+    Z[i] = min(X[i], Y[i])
+    W[i] = X[i]<Y[i]
+  }
+  return (sum(W)/sum(Z))
+}
+
+biais_reel = sapply(n, function(x) mean(replicate(10000, lambda_estim(x, lambda))) - lambda)
+
+variance_reel = sapply(n, function(x) var(replicate(10000, lambda_estim(x, lambda))))
+
+EQM_reel = biais_reel^2 + variance_reel
+
+
+
+plot(n, biais_reel, type = "l", col = "blue")
+lines(n, variance_reel, col = "red")
+lines(n, EQM_reel, col = "green")
+
+```
+
+## 5)
+
+```{r}
+n = 30
+lambda = seq(1, 10, length.out = 100)
+
+biais = sapply(lambda, function(x) mean(replicate(1000, lambda_estim(n, x))) - x)
+
+variance = sapply(lambda, function(x) var(replicate(1000, lambda_estim(n, x))))
+
+EQM = biais^2 + variance
+
+plot(lambda, biais, type = "l", col = "blue")
+lines(lambda, variance, col = "red")
+lines(lambda, EQM, col = "green")
+```
+
+## 6)
+
+On a l'information de fisher définie comme:
+```{=Latex}
+\begin{equation}
+I_n(\theta) = -E [ \frac{\partial^2 \ln L(\theta, \mathbf{X})}{\partial \theta^2} ]
+\end{equation}
+```
+
+Or : $L(\lambda ; Z_1, \ldots, Z_n, W_1, \ldots, W_n)=L(\lambda ; Z_1, \ldots, Z_n) L(\lambda ; W_1, \ldots, W_n)$
+
+D'où:
+
+```{=Latex}
+\begin{equation}
+I_n(\theta) = -E [ \frac{\partial^2 \ln L(\lambda ; Z_1, \ldots, Z_n) L(\lambda ; W_1, \ldots, W_n)}{\partial \lambda^2} ]
+\end{equation}
+```
+
+On a vu précedement que:
+
+```{=Latex}
+\begin{equation}
+\frac{\partial^2 \ln L(\lambda ; Z_1, \ldots, Z_n) L(\lambda ; W_1, \ldots, W_n)}{\partial \lambda^2} = -\frac{\sum{W_i}}{\lambda^2}
+\end{equation}
+```
+
+On développe:
+
+```{=Latex}
+\begin{aligned}
+E[\frac{\sum{W_i}}{\lambda ^2}]
+& = \frac{\sum{E[W_i]}}{\lambda ^2} \\
+& = \frac{\frac{n.\lambda}{\lambda+\mu}}{\lambda ^2} \\
+& = \frac{n}{((\lambda + \mu)*\lambda)}
+\end{aligned}
+```
+
+On a:
+```{=Latex}
+\begin{equation}
+I = \frac{n}{((\lambda + \mu)*\lambda)}
+\end{equation}
+```
+
+
+On a la distribution asymptotique de l’estimateur $\hat{\lambda_n}$ qui est d'après les propriétes du cours sur l'information de fisher de la forme: $\sqrt{I}(\hat{\lambda}_n - \lambda) \xrightarrow{}  N(0, 1)$ donc : $\hat{\lambda}_n \xrightarrow{} N(\lambda, \frac{1}{I})$
+
+Verifions avec R:
+
+```{r}
+n = 10000
+lambda = 4
+mu = 1
+
+I = n/((lambda + mu)*lambda)
+sigma = sqrt(1/I)
+
+x = seq(lambda-sigma * 3, lambda + sigma * 3, length.out = 100)
+
+
+distribution_theorique = dnorm(x, lambda, sigma)
+
+lambda_estim_f = function(n){
+  X = rexp(n, lambda)
+  Y = rexp(n, mu)
+  
+  Z = rep(0, n)
+  W = rep(0, n)
+  
+  for(i in seq(1, n)){
+    Z[i] = min(X[i], Y[i])
+    W[i] = X[i]<Y[i]
+  }
+  return (sum(W)/sum(Z))
+}
+
+distribution_reel = replicate(1000, lambda_estim_f(n))
+
+
+plot(x, distribution_theorique, type = "l",col = "blue")
+hist(distribution_reel, breaks = 30, col = rgb(1, 0, 0, 0.5), freq = FALSE, add = TRUE)
+
+legend("topright", legend = c("Théorique", "Simulé"), 
+       text.col = c("blue", "red"))
+```
+
+## 7)
+
+Puisque la distribution asymptotique suit une loi normale:
+
+$\sqrt{I}(\hat{\lambda}_n - \lambda) \xrightarrow{}  N(0, 1)$
+
+On a la formule d'un intervalle de confiance bilatérale définie comme:
+
+$\hat{m} - \frac{\sigma}{\sqrt{n}} u_{1-\alpha/2} < m < \hat{m} + \frac{\sigma}{\sqrt{n}} u_{1-\alpha/2}$
+
+On en déduis l'intervalle de confiance bilatéral symétrique asymptotique de niveau 1−α
+ pour le paramètre $\lambda$:
+ 
+$\hat{\lambda} - \frac{1}{\sqrt{I}} u_{1-\alpha/2} < \lambda < \hat{\lambda} + \frac{1}{\sqrt{I}} u_{1-\alpha/2}$
+
+Vérifions avec R:
+
+```{r}
+alpha = 0.05
+n = 100
+lambda = 4
+mu = 1
+
+I = n/((lambda + mu)*lambda)
+
+lambda_estim = lambda_estim_f(n)
+
+borne_inf = lambda_estim - sqrt(1/I)*qnorm(1-alpha/2)
+borne_sup = lambda_estim + sqrt(1/I)*qnorm(1-alpha/2)
+
+cat("Valeur réel : ", lambda, "\n")
+cat("Estimation : ", lambda_estim, "\n")
+cat("Borne inferieur : ", borne_inf, ", Borne supérieur : ", borne_sup)
+```
+
+## 8)
+
+
+
+## Exercice 2:
+
+## 9)
+
+On cherche $\hat{a_{MV}}$ par le maximum de vraisemblance:
+
+On a:
+
+```{=Latex}
+\begin{equation}
+L(a) = \prod_{i=1}^{n} f(x_i, a) = \prod_{i=1}^{n} ( 1_{\mathbb{R}_+^*}(x_i) \frac{x_i}{a} \exp( - \frac{x_i^2}{2a} ) )
+\end{equation}
+```
+
+
+Donc la log-vraisemblance:
+
+```{=Latex}
+\begin{equation}
+ln L(a) = \sum_{i=1}^{n} ln ( \frac{x_i}{a} \exp( - \frac{x_i^2}{2a} ) ) = \sum_{i=1}^{n} ( ln x_i - ln a - \frac{x_i^2}{2a} )
+\end{equation}
+```
+
+On dérive:
+
+```{=Latex}
+\begin{equation}
+\frac{d}{da} ln L(a) = \sum_{i=1}^{n} \left( -\frac{1}{a} + \frac{x_i^2}{2a^2} \right)
+\end{equation}
+```
+
+
+On cherche un extremum:
+
+```{=Latex}
+\begin{equation}
+-\frac{n}{a} + \frac{1}{2a^2} \sum_{i=1}^{n} x_i^2 = 0
+\end{equation}
+```
+
+On en déduit $\hat{a_{MV}}$:
+
+```{=Latex}
+\begin{equation}
+\hat{a}_{MV} = \frac{1}{2n} \sum_{i=1}^{n} x_i^2
+\end{equation}
+```
+
+On vérifie si c'est bien un maximum:
+
+```{=Latex}
+\begin{equation}
+\frac{d^2}{da^2} ln L(a) = \frac{n}{a^2} - \frac{\sum {x^2}}{a^3}
+\end{equation}
+```
+
+On se place au point : $a = \hat{a_{MV}} = \frac{1}{2n} \sum_{i=1}^{n} x_i^2$
+
+```{=Latex}
+\begin{equation}
+\frac{n}{a^2} - \frac{\sum {x^2}}{a^3} = 
+\end{equation}
+```
+
+Donc un estimateur par le maximum de vraisemblance est: $\hat{a}_{MV} = \frac{1}{2n} \sum_{i=1}^{n} x_i^2$
+
+## 10)
+Pour calculer le biais, on cherche l'espérance de l'estimateur:
+
+```{=Latex}
+\begin{aligned}
+E[\hat{a_{MV}}]
+& = E[\frac{1}{2n} \sum_{i=1}^{n} X_i^2] \\
+& = \frac{1}{2n} \sum{E[{X_i}^2]} \\
+\end{aligned}
+```
+
+On cherche donc: $E[{X_i}^2]$ que l'on va exprimer à l'aide de la formule de Huygens: ${Var}(X)=E(X^2)-(E(X))^2$
+
+D'après le récapitulatif de la loi de Rayleigh:
+
+$E[X] = \frac{\lambda \sqrt{2\pi}}{2}$ et $Var[X] =  \frac{\lambda ^2 (4 - \pi)}{2}$
+
+D'où:
+
+```{=Latex}
+\begin{aligned}
+E[{X_i}^2]
+& = (\frac{\lambda \sqrt{2\pi}}{2})^2 + \frac{\lambda ^2 (4 - \pi)}{2} \\
+& = 2\lambda ^2 \\
+\end{aligned}
+```
+
+Or $a \equiv \lambda^2$.
+
+On en déduit: $E[\hat{a_{MV}}] = a$
+
+Donc le biais est nul: $Biais(\hat{a_{MV}}) = 0$.
+
+
+## 11)
+
+L'estimateur est absolument convergent car il n'y a pas de biais et le maximum de vraissemblance implique la convergence de la variance.
+
+
+## 12)
+
+On a l'information de fisher définie comme:
+
+```{=Latex}
+\begin{equation}
+I_n(\theta) = -E [ \frac{\partial^2 \ln L(\theta, \mathbf{X})}{\partial \theta^2} ]
+\end{equation}
+```
+
+Comme vu précedement:
+
+```{=Latex}
+\begin{equation}
+\frac{d^2}{da^2} ln L(a) = \frac{n}{a^2} - \frac{\sum {x^2}}{a^3}
+\end{equation}
+```
+
+D'où:
+
+```{=Latex}
+\begin{aligned}
+I_n(a) 
+& = -E [ \frac{n}{a^2} - \frac{\sum {x^2}}{a^3} ]  \\
+& = - \frac{n}{a^2} + \frac{\sum {E[x^2]}}{a^3} ]  \\
+& = - \frac{n}{a^2} + \frac{n.2a}{a^3} ]  \\
+& = - \frac{n}{a^2} + \frac{n.2}{a^2} ]  \\
+& = \frac{n}{a^2}  \\
+\end{aligned}
+```
+
+On a la distribution asymptotique de l’estimateur $\hat{\lambda_n}$ qui est d'après les propriétes du cours sur l'information de fisher de la forme: $\sqrt{I}(\hat{\lambda}_n - \lambda) \xrightarrow{}  N(0, 1)$ donc : $\hat{\lambda}_n \xrightarrow{} N(\lambda, \frac{1}{I})$
+
+Vérifions avec R:
+
+```{r}
+n = 10000
+a = 3
+
+I = n/a^2
+
+sigma = sqrt(1/(I))
+x  = seq(a-sigma * 3, a+sigma * 3, length.out = 100)
+  
+distribution_theorique = dnorm(x, a, sigma)
+
+
+rayleigh_ech = function(sigma, n) {
+  sqrt(-2 * sigma^2 * log(runif(n)))
+}
+
+a_estim_f = function(n){
+  return (sum(rayleigh_ech(sqrt(a), n)^2) / (2 * n))
+}
+
+
+distribution_reel = replicate(1000, a_estim_f(n))
+
+
+plot(x, distribution_theorique, type = "l", col = "blue")
+hist(distribution_reel, breaks = 30, add = TRUE, freq = FALSE, col = rgb(1, 0, 0, 0.5))
+
+legend("topright", legend = c("Théorique", "Simulé"), 
+       text.col = c("blue", "red"))
+```
+
+## 13)
+
+Puisque la distribution asymptotique suit une loi normale:
+
+$\sqrt{I}(\hat{\lambda}_n - \lambda) \xrightarrow{}  N(0, 1)$
+
+On a la formule d'un intervalle de confiance bilatérale définie comme:
+
+$\hat{m} - \frac{\sigma}{\sqrt{n}} u_{1-\alpha/2} < m < \hat{m} + \frac{\sigma}{\sqrt{n}} u_{1-\alpha/2}$
+
+On en déduis l'intervalle de confiance bilatéral symétrique asymptotique de niveau 1−α
+ pour le paramètre a:
+ 
+$\hat{a} - \frac{1}{\sqrt{I}} u_{1-\alpha/2} < a < \hat{a} + \frac{1}{\sqrt{I}} u_{1-\alpha/2}$
+
+Vérifions avec R:
+
+```{r}
+a = 2
+alpha = 0.5
+n = 100
+
+I = n/a^2
+
+a_estim = a_estim_f(n)
+
+borne_inf = a_estim - sqrt(1/I)*qnorm(1-alpha/2)
+borne_sup = a_estim + sqrt(1/I)*qnorm(1-alpha/2)
+
+cat("Valeur réel : ", a, "\n")
+cat("Estimation : ", a_estim, "\n")
+cat("Borne inferieur : ", borne_inf, ", Borne supérieur : ", borne_sup)
+```
+
+## 14)
+
+Taux de couverture:
+
+```{r}
+couverture_f = function(alpha, a, n){
+
+  I = n/a^2
+  
+  many = 1000
+  couverture = 0
+  for( i in seq(0, 1, length.out = many)){
+    a_estim = a_estim_f(n)
+  
+    borne_inf = a_estim - sqrt(1/I)*qnorm(1-alpha/2)
+    borne_sup = a_estim + sqrt(1/I)*qnorm(1-alpha/2)
+    
+    if(borne_inf < a && a < borne_sup){
+      couverture = 1 + couverture
+    }
+  }
+  return (couverture/many)
+}
+
+
+alpha_values = c(0.01, 0.05, 0.10)
+a_values = c(10, 1, 0.1)
+n_values = c(8, 16, 32)
+
+
+couverture_total = data.frame()
+for (alpha in alpha_values) {
+  for (a in a_values) {
+    for (n in n_values) {
+      couverture = couverture_f(alpha, a, n)
+      couverture_total = rbind(couverture_total, data.frame(alpha, a, n, couverture))
+    }
+  }
+}
+
+print(couverture_total)
+```
+
+
+## 14)
+
+On a un échantillon de mesures des hauteurs maximales en mètres pour le fleuve. Or, on connait la loi de distribution de la hauteur maximale. Donc, on cherche à estimer le paramètre a par l'estimateur du maximum de vraissemblance trouvé précedement:  $\hat{a}_{MV} = \frac{1}{2n} \sum_{i=1}^{n} x_i^2$
+
+```{r}
+hauteurs <- c(2.27, 3.75, 0.29, 6.88, 5.17, 4.29, 4.07, 4.47)
+
+a_estim = (sum(hauteurs^2))/(2*length(hauteurs))
+cat("estimation de a : ", a_estim)
+```
+On cherche maintenant la probabilité qu'il y ai une crue d'une hauteur de 6 mètres ou plus.
+Pour cela, on utilise la fonction de répartition $F = P(X\leq x)$.
+
+```{=Latex}
+\begin{aligned}
+F(x)
+&= \int_{0}^{x} f(x) \, dx \\
+&= \int_{0}^{x} \frac{x}{a} e^{\frac{-x^2}{2a}}  \\
+&=  [-e^{\frac{-x^2}{2a}}]_{0}^{x} \\
+&= 1 - -e^{\frac{-x^2}{2a}}  \\
+\end{aligned}
+```
+
+La probabilté qu'il y ai une crue d'une hauteur de 6 mètres ou plus se traduit par : $P(X>6) = 1 - P(X<6) = 1 - F(6)$.
+
+On applique la formule en remplacant le paramètre a par son estimation:
+
+```{=Latex}
+\begin{aligned}
+1 - F(6)
+&= e^{\frac{-x^2}{2a}}  \\
+&= 0.1434 \\
+\end{aligned}
+```
+
+On cherche à savoir si la probabilité du maximum sur 1000 ans:
+
+```{=Latex}
+\begin{aligned}
+P_max
+&= P(X_1 < x, W_2 < x, ..., W_n < x)  \\
+&= P(X < x)^n \\
+&= F(x)^n
+\end{aligned}
+```
+
+Donc:
+
+La probabilité du maximum de l'échantillon est:
+
+$F(x)^n = 0.1434^{1000}$
+
+```{r}
+res = exp((-6^2)/(2*9.269544))^1000
+print(res)
+```
+
+
+Faisons maintenant un test d'hypothèse nulle:
+
+Soient:
+$H_0 : P(X>6) = \frac{1}{1000}$
+$H_1 : P(X>6) > \frac{1}{1000}$
+
+On se place à la valeur initiale a = 2.606
+
+On cherche la valeur seuille pour la décision:
+
+Il faut connaitre la répartition de $P(X>6)$
+
+Rique $\alpha = 5\%$
+Risque $\beta = $
+
+```{r}
+alpha = 0.05
+a = 2.606
+
+rayleigh_ech = function(sigma, n) {
+  sqrt(-2 * sigma^2 * log(runif(n)))
+}
+
+a_estim_f = function(n){
+  return (sum(rayleigh_ech(sqrt(a), n)^2) / (2 * n))
+}
+
+P_sup_6_f = function(n){
+  exp((-6^2)/(2*a_estim_f(n)))
+}
+
+ech = replicate(100000, P_sup_6_f(8))
+hist(ech, breaks = 100, freq = FALSE)
+val = quantile(ech, probs = 1-alpha)
+cat("Valeur de décision : ", val, "\n")
+
+a = 9.269544
+
+H1_distibution = replicate(100000, P_sup_6_f(8))
+
+repartition_H1_funct <- ecdf(H1_distibution)
+
+beta <- repartition_H1_funct(val)
+
+cat("Risque de première espèce alpha : ", alpha, "\n")
+cat("Risque de seconde espèce beta : ", beta, "\n")
+```
+
